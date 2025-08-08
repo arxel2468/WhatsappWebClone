@@ -1,11 +1,9 @@
-// src/components/LoadingSpinner.js
+// LoadingSpinner.js
 import React from 'react';
 
 function LoadingSpinner() {
   return (
-    <div className="loading">
-      <div className="loading-spinner"></div>
-    </div>
+    <div className="loading-spinner"></div>
   );
 }
 

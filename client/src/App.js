@@ -1,4 +1,4 @@
-
+// App.js
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
@@ -7,6 +7,7 @@ import ChatList from './components/ChatList';
 import ChatWindow from './components/ChatWindow';
 import EmptyState from './components/EmptyState';
 import SampleLoader from './components/SampleLoader';
+import LoadingSpinner from './components/LoadingSpinner';
 import { 
   FaCircleNotch, 
   FaCommentAlt, 
@@ -17,8 +18,23 @@ import {
   FaSun
 } from 'react-icons/fa';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+// Get the current hostname
+const currentHost = window.location.hostname;
+
+// Determine if we're running locally or on a deployed server
+const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+
+// Set the API and Socket.IO URLs based on the environment
+const API_URL = isLocalhost 
+  ? 'http://localhost:5000/api' 
+  : `${window.location.origin}/api`;
+
+const SOCKET_URL = isLocalhost 
+  ? 'http://localhost:5000' 
+  : window.location.origin;
+
+console.log('API URL:', API_URL);
+console.log('Socket URL:', SOCKET_URL);
 
 function App() {
   const [contacts, setContacts] = useState([]);
@@ -29,60 +45,85 @@ function App() {
   const [searchActive, setSearchActive] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [darkMode, setDarkMode] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
   const socketRef = useRef(null);
   const searchInputRef = useRef(null);
 
   useEffect(() => {
     // Connect to Socket.IO
-    socketRef.current = io(SOCKET_URL);
-    
-    // Listen for new messages
-    socketRef.current.on('new-message', (newMessage) => {
-      if (selectedContact && newMessage.wa_id === selectedContact.wa_id) {
-        setMessages(prevMessages => [...prevMessages, newMessage]);
-      }
+    try {
+      socketRef.current = io(SOCKET_URL, {
+        reconnectionAttempts: 5,
+        timeout: 10000,
+        transports: ['websocket', 'polling']
+      });
       
-      // Update contact list with new message
-      setContacts(prevContacts => {
-        const updatedContacts = [...prevContacts];
-        const contactIndex = updatedContacts.findIndex(c => c.wa_id === newMessage.wa_id);
+      // Listen for connection events
+      socketRef.current.on('connect', () => {
+        console.log('Socket.IO connected');
+        setConnectionError(false);
+      });
+      
+      socketRef.current.on('connect_error', (err) => {
+        console.error('Socket.IO connection error:', err);
+        setConnectionError(true);
+      });
+      
+      // Listen for new messages
+      socketRef.current.on('new-message', (newMessage) => {
+        console.log('New message received:', newMessage);
         
-        if (contactIndex !== -1) {
-          updatedContacts[contactIndex] = {
-            ...updatedContacts[contactIndex],
-            last_message: newMessage.text.body,
-            timestamp: newMessage.timestamp
-          };
-          
-          // Sort contacts by timestamp
-          updatedContacts.sort((a, b) => b.timestamp - a.timestamp);
-        } else {
-          // Add new contact
-          updatedContacts.push({
-            wa_id: newMessage.wa_id,
-            name: newMessage.contact_name || newMessage.wa_id,
-            last_message: newMessage.text.body,
-            timestamp: newMessage.timestamp
-          });
-          
-          // Sort contacts by timestamp
-          updatedContacts.sort((a, b) => b.timestamp - a.timestamp);
+        if (selectedContact && newMessage.wa_id === selectedContact.wa_id) {
+          setMessages(prevMessages => [...prevMessages, newMessage]);
         }
         
-        return updatedContacts;
+        // Update contact list with new message
+        setContacts(prevContacts => {
+          const updatedContacts = [...prevContacts];
+          const contactIndex = updatedContacts.findIndex(c => c.wa_id === newMessage.wa_id);
+          
+          if (contactIndex !== -1) {
+            updatedContacts[contactIndex] = {
+              ...updatedContacts[contactIndex],
+              last_message: newMessage.text.body,
+              timestamp: newMessage.timestamp
+            };
+            
+            // Sort contacts by timestamp
+            updatedContacts.sort((a, b) => b.timestamp - a.timestamp);
+          } else {
+            // Add new contact
+            updatedContacts.push({
+              wa_id: newMessage.wa_id,
+              name: newMessage.contact_name || newMessage.wa_id,
+              last_message: newMessage.text.body,
+              timestamp: newMessage.timestamp
+            });
+            
+            // Sort contacts by timestamp
+            updatedContacts.sort((a, b) => b.timestamp - a.timestamp);
+          }
+          
+          return updatedContacts;
+        });
       });
-    });
-    
-    // Listen for status updates
-    socketRef.current.on('status-update', (update) => {
-      if (selectedContact) {
-        setMessages(prevMessages => 
-          prevMessages.map(msg => 
-            msg.id === update.id ? { ...msg, status: update.status } : msg
-          )
-        );
-      }
-    });
+      
+      // Listen for status updates
+      socketRef.current.on('status-update', (update) => {
+        console.log('Status update received:', update);
+        
+        if (selectedContact) {
+          setMessages(prevMessages => 
+            prevMessages.map(msg => 
+              msg.id === update.id ? { ...msg, status: update.status } : msg
+            )
+          );
+        }
+      });
+    } catch (error) {
+      console.error('Error initializing Socket.IO:', error);
+      setConnectionError(true);
+    }
     
     // Fetch contacts
     fetchContacts();
@@ -95,7 +136,9 @@ function App() {
     }
     
     return () => {
-      socketRef.current.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
     };
   }, []);
 
@@ -134,9 +177,11 @@ function App() {
       }
       
       setLoading(false);
+      setConnectionError(false);
     } catch (error) {
       console.error('Error fetching contacts:', error);
       setLoading(false);
+      setConnectionError(true);
     }
   };
 
@@ -181,8 +226,10 @@ function App() {
         contact_name: selectedContact.name
       });
       
+      // The actual message with server-generated ID will be added via socket.io
     } catch (error) {
       console.error('Error sending message:', error);
+      // Optionally show an error to the user
     }
   };
 
@@ -215,6 +262,19 @@ function App() {
       message.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
+
+  // Show connection error message
+  if (connectionError && contacts.length === 0) {
+    return (
+      <div className="connection-error">
+        <div className="error-container">
+          <h2>Connection Error</h2>
+          <p>Unable to connect to the server. Please try again later.</p>
+          <button onClick={fetchContacts}>Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`app ${darkMode ? 'dark-mode' : ''}`}>

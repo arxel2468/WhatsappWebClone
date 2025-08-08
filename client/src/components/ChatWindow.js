@@ -1,4 +1,4 @@
-// src/components/ChatWindow.js
+// ChatWindow.js
 import React, { useState, useRef, useEffect } from 'react';
 import moment from 'moment';
 import { 
@@ -12,6 +12,7 @@ import {
   FaArrowLeft
 } from 'react-icons/fa';
 import { IoSend } from 'react-icons/io5';
+import LoadingSpinner from './LoadingSpinner';
 
 function ChatWindow({ contact, messages, sendMessage, loading }) {
   const [newMessage, setNewMessage] = useState('');
@@ -79,7 +80,7 @@ function ChatWindow({ contact, messages, sendMessage, loading }) {
       case 'read':
         return <FaCheckDouble className="chat-message-status status-transition" size={12} style={{ color: '#53bdeb' }} />;
       default:
-        return <FaCheck className="chat-message-status" size={12} />; // Default to sent
+        return <FaCheck className="chat-message-status" size={12} />;
     }
   };
 
@@ -119,7 +120,7 @@ function ChatWindow({ contact, messages, sendMessage, loading }) {
     return (
       <div className="chat-window">
         <div className="loading">
-          <div className="loading-spinner"></div>
+          <LoadingSpinner />
         </div>
       </div>
     );
@@ -129,8 +130,8 @@ function ChatWindow({ contact, messages, sendMessage, loading }) {
   const online = isOnline();
 
   return (
-    <div className="chat-window">
-      <div className="chat-header">
+    <div className="chat-header">
+            <div className="chat-header">
         <div className="chat-header-img">
           <img 
             src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || contact.wa_id)}&background=random&color=fff`} 

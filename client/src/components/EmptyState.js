@@ -1,4 +1,4 @@
-// src/components/EmptyState.js
+// EmptyState.js
 import React from 'react';
 import { FaLock } from 'react-icons/fa';
 

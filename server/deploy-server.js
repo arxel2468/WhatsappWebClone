@@ -2,13 +2,30 @@
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
+const cors = require('cors');
 const fs = require('fs');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
+// Initialize Express app and server
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 // Middleware
+app.use(cors());
 app.use(express.json());
+
+// Make io available to routes
+app.set('io', io);
 
 // Define Message Schema
 const messageSchema = new mongoose.Schema({
@@ -37,7 +54,7 @@ const messageSchema = new mongoose.Schema({
 const Message = mongoose.model('Message', messageSchema, 'processed_messages');
 
 // Process webhook payload function
-const processWebhookPayload = async (payload) => {
+const processWebhookPayload = async (payload, io) => {
   try {
     if (payload.metaData && payload.metaData.entry && 
         payload.metaData.entry[0].changes && 
@@ -68,6 +85,12 @@ const processWebhookPayload = async (payload) => {
         });
         
         await newMessage.save();
+        
+        // Emit the new message to all connected clients
+        if (io) {
+          io.emit('new-message', newMessage);
+        }
+        
         return newMessage;
       }
       
@@ -81,6 +104,11 @@ const processWebhookPayload = async (payload) => {
           { new: true }
         );
         
+        if (updatedMessage && io) {
+          // Emit the status update to all connected clients
+          io.emit('status-update', { id: status.id, status: status.status });
+        }
+        
         return updatedMessage;
       }
     }
@@ -93,7 +121,7 @@ const processWebhookPayload = async (payload) => {
 };
 
 // Function to load sample data
-async function loadSampleData() {
+async function loadSampleData(io) {
   try {
     const sampleDir = path.join(__dirname, '../samples');
     
@@ -116,15 +144,17 @@ async function loadSampleData() {
       const filePath = path.join(sampleDir, file);
       const payload = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       
-      const result = await processWebhookPayload(payload);
+      const result = await processWebhookPayload(payload, io);
       if (result) {
         processedCount++;
       }
     }
     
     console.log(`Processed ${processedCount} sample files`);
+    return processedCount;
   } catch (error) {
     console.error('Error loading sample data:', error);
+    return 0;
   }
 }
 
@@ -152,7 +182,8 @@ app.get('/api/contacts', async (req, res) => {
     
     res.json(contacts);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching contacts:', err);
+    res.status(500).json({ error: 'Failed to fetch contacts' });
   }
 });
 
@@ -162,13 +193,18 @@ app.get('/api/messages/:wa_id', async (req, res) => {
       .sort({ timestamp: 1 });
     res.json(messages);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching messages:', err);
+    res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 
 app.post('/api/messages', async (req, res) => {
   try {
     const { wa_id, text, contact_name } = req.body;
+    
+    if (!wa_id || !text) {
+      return res.status(400).json({ error: 'wa_id and text are required' });
+    }
     
     const newMessage = new Message({
       id: `local-${Date.now()}`,
@@ -184,57 +220,93 @@ app.post('/api/messages', async (req, res) => {
     });
     
     await newMessage.save();
+    
+    // Emit the new message to all connected clients
+    io.emit('new-message', newMessage);
+    
     res.status(201).json(newMessage);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error sending message:', err);
+    res.status(500).json({ error: 'Failed to send message' });
   }
 });
 
 // Simple API route for health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Process sample data endpoint
 app.post('/api/process-samples', async (req, res) => {
   try {
-    await loadSampleData();
-    res.json({ success: true, message: 'Sample data processed successfully' });
+    const count = await loadSampleData(io);
+    res.json({ success: true, message: `Processed ${count} sample files` });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error processing samples:', error);
+    res.status(500).json({ error: 'Failed to process sample data' });
   }
 });
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../client/build')));
 
-// Root route
-app.get('/', (req, res) => {
+// Root route and catch-all for client-side routing
+app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+});
+
+// Socket.IO connection
+io.on('connection', (socket) => {
+  console.log('A user connected');
+  
+  socket.on('disconnect', () => {
+    console.log('User disconnected');
+  });
 });
 
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp';
-mongoose.connect(MONGODB_URI)
-  .then(async () => {
-    console.log('Connected to MongoDB');
+mongoose.connect(MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+})
+.then(async () => {
+  console.log('Connected to MongoDB');
+  
+  // Check if we need to load sample data
+  try {
+    const count = await Message.countDocuments();
+    console.log(`Found ${count} existing messages`);
     
-    // Check if we need to load sample data
-    try {
-      const count = await Message.countDocuments();
-      if (count === 0) {
-        console.log('No messages found. Loading sample data...');
-        await loadSampleData();
-      } else {
-        console.log(`Found ${count} existing messages. Skipping sample data load.`);
-      }
-    } catch (err) {
-      console.error('Error checking/loading sample data:', err);
+    if (count === 0) {
+      console.log('No messages found. Loading sample data...');
+      await loadSampleData(io);
+    } else {
+      console.log('Skipping sample data load');
     }
-  })
-  .catch(err => console.error('MongoDB connection error:', err));
+  } catch (err) {
+    console.error('Error checking/loading sample data:', err);
+  }
+})
+.catch(err => {
+  console.error('MongoDB connection error:', err);
+  // Don't crash the server if MongoDB connection fails
+});
 
+// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
