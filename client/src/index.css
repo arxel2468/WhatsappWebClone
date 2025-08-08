@@ -1,0 +1,102 @@
+/* Add these styles to index.css */
+.chat-date {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.chat-date span {
+  background-color: #fff;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #54656f;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+}
+
+.empty-state-encryption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: #8696a0;
+  font-size: 14px;
+}
+
+/* Add responsive styles */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-width: 100%;
+  }
+  
+  .chat-window {
+    height: 100%;
+  }
+  
+  .empty-state {
+    display: none;
+  }
+}
+
+/* Add WhatsApp background pattern */
+.chat-body {
+  position: relative;
+}
+
+.chat-body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.05;
+  background-color: #d1d7db;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Cpath fill='%23ffffff' d='M600 325.1v-170.2l-300-154.9-300 154.9v170.2l300 154.9 300-154.9z'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px;
+  z-index: -1;
+}
+
+/* Add typing indicator animation */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.typing-indicator span {
+  height: 8px;
+  width: 8px;
+  float: left;
+  margin: 0 1px;
+  background-color: #9e9ea1;
+  display: block;
+  border-radius: 50%;
+  opacity: 0.4;
+}
+
+.typing-indicator span:nth-of-type(1) {
+  animation: 1s blink infinite 0.3333s;
+}
+
+.typing-indicator span:nth-of-type(2) {
+  animation: 1s blink infinite 0.6666s;
+}
+
+.typing-indicator span:nth-of-type(3) {
+  animation: 1s blink infinite 0.9999s;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 1;
+  }
+}
