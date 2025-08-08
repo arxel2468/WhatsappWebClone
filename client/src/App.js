@@ -126,22 +126,26 @@ function App() {
     }
   }, [darkMode]);
 
+  useEffect(() => {
   const fetchContacts = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_URL}/contacts`);
       setContacts(response.data);
-      setLoading(false);
       
       // Hide sample loader if we have contacts
       if (response.data.length > 0) {
         setShowSampleLoader(false);
       }
+      
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching contacts:', error);
       setLoading(false);
     }
   };
+
+  fetchContacts();
 
   const fetchMessages = async (wa_id) => {
     try {
