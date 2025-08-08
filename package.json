@@ -2,9 +2,9 @@
   "name": "whatsapp-web-clone",
   "version": "1.0.0",
   "description": "WhatsApp Web Clone",
-  "main": "server/server.js",
+  "main": "server/deploy-server.js",
   "scripts": {
-    "start": "node server/server.js",
+    "start": "node server/deploy-server.js",
     "server": "cd server && npm run dev",
     "client": "cd client && npm start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
@@ -21,7 +21,10 @@
   "author": "Amit Pandit",
   "license": "MIT",
   "dependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "express": "^4.18.2",
+    "mongoose": "^7.0.3",
+    "dotenv": "^16.0.3"
   },
   "engines": {
     "node": ">=14.0.0"
