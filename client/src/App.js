@@ -1,4 +1,4 @@
-// src/App.js
+
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
@@ -7,13 +7,11 @@ import ChatList from './components/ChatList';
 import ChatWindow from './components/ChatWindow';
 import EmptyState from './components/EmptyState';
 import SampleLoader from './components/SampleLoader';
-import LoadingSpinner from './components/LoadingSpinner';
 import { 
   FaCircleNotch, 
   FaCommentAlt, 
   FaEllipsisV, 
   FaSearch, 
-  FaArrowLeft,
   FaMoon,
   FaSun
 } from 'react-icons/fa';
@@ -39,9 +37,6 @@ function App() {
     
     // Listen for new messages
     socketRef.current.on('new-message', (newMessage) => {
-      console.log('New message received:', newMessage);
-      
-      // Update messages if this is for the selected contact
       if (selectedContact && newMessage.wa_id === selectedContact.wa_id) {
         setMessages(prevMessages => [...prevMessages, newMessage]);
       }
@@ -126,7 +121,6 @@ function App() {
     }
   }, [darkMode]);
 
-  useEffect(() => {
   const fetchContacts = async () => {
     try {
       setLoading(true);
@@ -144,8 +138,6 @@ function App() {
       setLoading(false);
     }
   };
-
-  fetchContacts();
 
   const fetchMessages = async (wa_id) => {
     try {
@@ -188,11 +180,8 @@ function App() {
         contact_name: selectedContact.name
       });
       
-      // The actual message with server-generated ID will be added via socket.io
-      // We'll keep both until a page refresh
     } catch (error) {
       console.error('Error sending message:', error);
-      // Optionally show an error to the user
     }
   };
 
