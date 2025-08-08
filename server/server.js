@@ -1,4 +1,4 @@
-// server.js
+// server/server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -6,8 +6,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config();
-
-const apiRoutes = require('./routes/api');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,37 +24,29 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => {
-  console.error('MongoDB connection error:', err);
-  // Don't crash the server if MongoDB connection fails
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp';
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Simple health check route
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
-
-app.get('/healthz', (req, res) => {
-  res.status(200).send('OK');
-});
-// API routes
+// Import API routes
+const apiRoutes = require('./routes/api');
 app.use('/api', apiRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
   
-  // Make this more specific to avoid path-to-regexp issues
+  // This should be the last route
   app.get('/*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
   });
 }
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
-});
 
 // Socket.IO connection
 io.on('connection', (socket) => {
