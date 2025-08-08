@@ -12,6 +12,7 @@ import {
   FaCommentAlt, 
   FaEllipsisV, 
   FaSearch, 
+  FaArrowLeft,
   FaMoon,
   FaSun
 } from 'react-icons/fa';
