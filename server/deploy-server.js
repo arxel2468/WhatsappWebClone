@@ -92,27 +92,6 @@ const processWebhookPayload = async (payload) => {
   }
 };
 
-// MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp';
-mongoose.connect(MONGODB_URI)
-  .then(async () => {
-    console.log('Connected to MongoDB');
-    
-    // Check if we need to load sample data
-    try {
-      const count = await Message.countDocuments();
-      if (count === 0) {
-        console.log('No messages found. Loading sample data...');
-        await loadSampleData();
-      } else {
-        console.log(`Found ${count} existing messages. Skipping sample data load.`);
-      }
-    } catch (err) {
-      console.error('Error checking/loading sample data:', err);
-    }
-  })
-  .catch(err => console.error('MongoDB connection error:', err));
-
 // Function to load sample data
 async function loadSampleData() {
   try {
@@ -229,10 +208,31 @@ app.post('/api/process-samples', async (req, res) => {
 // Serve static files
 app.use(express.static(path.join(__dirname, '../client/build')));
 
-// Catch-all route handler
-app.get('/*', (req, res) => {
+// Root route
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
 });
+
+// MongoDB connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp';
+mongoose.connect(MONGODB_URI)
+  .then(async () => {
+    console.log('Connected to MongoDB');
+    
+    // Check if we need to load sample data
+    try {
+      const count = await Message.countDocuments();
+      if (count === 0) {
+        console.log('No messages found. Loading sample data...');
+        await loadSampleData();
+      } else {
+        console.log(`Found ${count} existing messages. Skipping sample data load.`);
+      }
+    } catch (err) {
+      console.error('Error checking/loading sample data:', err);
+    }
+  })
+  .catch(err => console.error('MongoDB connection error:', err));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
