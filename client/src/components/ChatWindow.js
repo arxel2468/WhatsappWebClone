@@ -130,8 +130,8 @@ function ChatWindow({ contact, messages, sendMessage, loading }) {
   const online = isOnline();
 
   return (
-    <div className="chat-header">
-            <div className="chat-header">
+    <div className="chat-window">
+      <div className="chat-header">
         <div className="chat-header-img">
           <img 
             src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || contact.wa_id)}&background=random&color=fff`} 
